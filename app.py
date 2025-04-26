@@ -48,7 +48,10 @@ def get_session():
 
 # Configuração do banco de dados
 Base = declarative_base()
-engine = create_engine('sqlite:///agendamento.db', echo=False)
+engine = create_engine(
+    os.getenv('DATABASE_URL'),
+    echo=False
+)
 Session = sessionmaker(bind=engine)
 
 # Constantes
@@ -528,7 +531,7 @@ h1, h2, h3 {
 # =====================================================
 
 def fechar_conexoes():
-    """Fecha todas as conexões ativas com o banco e remove o arquivo"""
+    """Fecha todas as conexões ativas com o banco"""
     try:
         # Tentar fechar conexões SQLAlchemy
         try:
@@ -537,24 +540,6 @@ def fechar_conexoes():
                 logging.info("Engine SQLAlchemy fechado")
         except Exception as e:
             logging.error(f"Erro ao fechar engine SQLAlchemy: {str(e)}")
-        
-        # Fechar conexões SQLite
-        import sqlite3
-        try:
-            conn = sqlite3.connect('agendamento.db')
-            conn.close()
-            logging.info("Conexão SQLite fechada")
-        except Exception as e:
-            logging.error(f"Erro ao fechar conexão SQLite: {str(e)}")
-        
-        # Remover arquivo do banco
-        if os.path.exists('agendamento.db'):
-            try:
-                os.remove('agendamento.db')
-                logging.info("Arquivo do banco removido")
-            except Exception as e:
-                logging.error(f"Erro ao remover arquivo do banco: {str(e)}")
-        
         logging.info("Fechamento de conexões concluído com sucesso")
         return True
     except Exception as e:
