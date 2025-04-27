@@ -18,6 +18,13 @@ from sqlalchemy.orm import sessionmaker, relationship, joinedload
 import os
 from unidecode import unidecode
 import unicodedata
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv(override=True)
+
+# Obter a URL do banco de dados do arquivo .env
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 # Configuração da página do Streamlit
 st.set_page_config(
@@ -49,7 +56,7 @@ def get_session():
 # Configuração do banco de dados
 Base = declarative_base()
 engine = create_engine(
-    os.getenv('DATABASE_URL'),
+    DATABASE_URL,
     echo=False
 )
 Session = sessionmaker(bind=engine)
@@ -531,7 +538,7 @@ h1, h2, h3 {
 # =====================================================
 
 def fechar_conexoes():
-    """Fecha todas as conexões ativas com o banco"""
+    """Fecha todas as conexões ativas com o banco e remove o arquivo"""
     try:
         # Tentar fechar conexões SQLAlchemy
         try:
@@ -540,6 +547,24 @@ def fechar_conexoes():
                 logging.info("Engine SQLAlchemy fechado")
         except Exception as e:
             logging.error(f"Erro ao fechar engine SQLAlchemy: {str(e)}")
+        
+        # Fechar conexões SQLite
+        import sqlite3
+        try:
+            conn = sqlite3.connect('agendamento.db')
+            conn.close()
+            logging.info("Conexão SQLite fechada")
+        except Exception as e:
+            logging.error(f"Erro ao fechar conexão SQLite: {str(e)}")
+        
+        # Remover arquivo do banco
+        if os.path.exists('agendamento.db'):
+            try:
+                os.remove('agendamento.db')
+                logging.info("Arquivo do banco removido")
+            except Exception as e:
+                logging.error(f"Erro ao remover arquivo do banco: {str(e)}")
+        
         logging.info("Fechamento de conexões concluído com sucesso")
         return True
     except Exception as e:

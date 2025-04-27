@@ -41,6 +41,7 @@ ENV/
 # Arquivos temporários
 *.tmp
 *.temp
+*.env
 .DS_Store
 
 # Arquivos de configuração local

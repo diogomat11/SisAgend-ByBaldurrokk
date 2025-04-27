@@ -20,10 +20,8 @@ Sistema de agendamento desenvolvido com Streamlit para gerenciamento de profissi
 
 - Python 3.8+
 - pip (gerenciador de pacotes Python)
-- Conta no [Supabase](https://supabase.com/) para banco de dados PostgreSQL
-- Conta no [Streamlit Cloud](https://streamlit.io/cloud) para deploy online (opcional)
 
-## Instalação Local
+## Instalação
 
 1. Clone o repositório:
 ```bash
@@ -51,46 +49,22 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-5. Configure as variáveis de ambiente:
-- Copie o arquivo `.env.example` para `.env` e preencha com sua URL do banco de dados PostgreSQL (Supabase):
-
-```
-DATABASE_URL=postgresql+psycopg2://postgres:SENHA_DO_SUPABASE@db.lmnboexmebxxwfowyjqe.supabase.co:5432/postgres
-```
-
-## Executando a Aplicação Localmente
+## Executando a Aplicação
 
 1. Ative o ambiente virtual (se ainda não estiver ativo)
 2. Execute o comando:
 ```bash
 streamlit run app.py
 ```
+
 3. Acesse a aplicação no navegador: http://localhost:8501
-
-## Deploy no Streamlit Cloud
-
-1. Faça push do seu código para o GitHub.
-2. Acesse [streamlit.io/cloud](https://streamlit.io/cloud) e clique em "New app".
-3. Selecione o repositório e branch.
-4. Em "Advanced settings" > "Secrets", adicione a variável:
-   ```toml
-   DATABASE_URL = "postgresql+psycopg2://postgres:SENHA_DO_SUPABASE@db.lmnboexmebxxwfowyjqe.supabase.co:5432/postgres"
-   ```
-   Substitua `SENHA_DO_SUPABASE` pela senha do seu banco no Supabase.
-5. Clique em "Deploy".
-
-**Importante:**
-- Nunca coloque a senha real no código ou no repositório.
-- Use sempre variáveis de ambiente para dados sensíveis.
-- O arquivo `.env` **NÃO** deve ser versionado (veja `.gitignore`).
 
 ## Estrutura do Projeto
 
 - `app.py`: Arquivo principal da aplicação
 - `requirements.txt`: Lista de dependências
-- `.env.example`: Exemplo de variáveis de ambiente
+- `.gitignore`: Arquivos e diretórios ignorados pelo Git
 - `README.md`: Documentação do projeto
-- `migrate_db.py`: Script de migração do banco SQLite para Supabase/PostgreSQL
 
 ## Contribuição
 

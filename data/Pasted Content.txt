@@ -1,0 +1,156 @@
+Objetivo da Aplicação: Desenvolver uma aplicação web para gerenciar a disponibilidade de agendamentos, utilizando dados de agendamentos fixos e bloqueios de agenda de profissionais.
+Entrada de Dados: A aplicação deverá receber dois arquivos no formato .xls:
+•
+Arquivo 1: Agenda Fixa de Atendimentos Agendados (PEI-CADASTRADO): Este arquivo conterá os dados dos agendamentos já realizados. Os nomes das planilhas e sheets internos podem variar.
+•
+Arquivo 2: Bloqueios de Agenda dos Profissionais: Este arquivo listará os bloqueios de horários dos profissionais. Os nomes das planilhas e sheets internos podem variar, e o formato dos dias da semana pode ser inconsistente (ex: "Segunda-Feira", "SEGUNDA-FEIRA", "TERCA-FEIRA").
+Banco de Dados: A aplicação deverá criar as seguintes tabelas no banco de dados, com base nos arquivos de entrada e nas seguintes regras:
+•
+Tabela Unidade:
+◦
+Colunas: (a serem definidas com base na necessidade do módulo de cadastro e edição) e uma coluna booleana indicando se a unidade atende aos sábados ou não.
+◦
+População: A informação sobre o atendimento aos sábados será extraída do arquivo da agenda fixa. As unidades "República do Líbano" e "Extena" atendem aos sábados, as demais não.
+•
+Tabela Salas:
+◦
+Colunas: IdSala (Inteiro, Chave Primária), NomeSala (Texto), IdUnidade (Inteiro, Chave Estrangeira referenciando Unidade).
+◦
+População: As salas estarão vinculadas a cada unidade. A criação e edição de salas será feita através de um módulo específico.
+•
+Tabela Disponibilidade Salas:
+◦
+Colunas: IdSala (Inteiro, Chave Estrangeira referenciando Salas), Dia (Texto), Horario (Texto), Status (Texto).
+◦
+População: Cada sala terá 64 horários: 12 para cada dia de segunda a sexta (das 07:00 às 18:00) e 4 para o sábado (das 08:00 às 11h).
+◦
+Status Inicial: Para unidades que não atendem aos sábados, os status das salas para os horários de sábado deverão ser "Bloqueio". O status para os demais dias/horários será atualizado com base na Tabela agenda fixa (ver abaixo).
+•
+Tabela Agenda Fixa:
+◦
+Colunas: Deverá conter todas as colunas relevantes do arquivo "Agenda Fixa". Adicionar uma coluna chamada DiaSemana (Texto) com base na coluna de data existente. Adicionar uma coluna chamada CodigoFaturamento (Texto) onde os dados originalmente no formato ="2250005103" devem ter os caracteres = e as aspas removidas, sendo convertidos para texto para preservar zeros à esquerda.
+◦
+População: Os dados serão inseridos diretamente do arquivo "Agenda Fixa".
+•
+Tabela Profissionais:
+◦
+Colunas: IdProffional (Inteiro, Chave Primária), NomeProfissioanl (Texto), PublicoIdade (Texto), Especialidade (Texto), CodFaturamento (Texto).
+◦
+População: Os profissionais serão listados com base no arquivo "Agenda Fixa". Considerar a possibilidade de um profissional ter mais de uma especialidade. Avaliar se a coluna Especialidade pode armazenar múltiplos valores (e.g., separados por vírgula) ou se uma tabela Especialidades separada com uma relação muitos-para-muitos com Profissionais seria mais adequada.
+•
+Tabela Especialidades: (Opcional, dependendo da decisão sobre a coluna de especialidade na tabela Profissionais).
+◦
+Colunas: IdEspecialidade (Inteiro, Chave Primária), NomeEspecialidade (Texto).
+◦
+Tabela de Ligação Profissionais-Especialidades (caso a tabela Especialidades seja criada): IdProfissional (Inteiro, Chave Estrangeira referenciando Profissionais), IdEspecialidade (Inteiro, Chave Estrangeira referenciando Especialidades), Chave Primária composta por ambas as colunas.
+•
+Tabela Disponibilidade Profissionais:
+◦
+Colunas: IdProffional (Inteiro, Chave Estrangeira referenciando Profissionais), Dia (Texto), Horario (Texto), IdUnidade (Inteiro, Chave Estrangeira referenciando Unidade), Status (Texto).
+◦
+População: Para cada profissional, haverá 64 linhas de disponibilidade, seguindo a mesma estrutura de horários da Tabela disponibilidade salas (12 horários de segunda a sexta das 07:00 às 18:00, e 4 horários no sábado das 08:00 às 11h).
+◦
+Status:
+▪
+Se o profissional estiver vinculado a uma unidade que não funciona aos sábados, o Status para os horários de sábado deverá ser "Bloqueio".
+▪
+Se o dia/horário constar na Tabela Bloqueios para aquele profissional, o Status deverá ser "Bloqueio".
+▪
+Se o dia/horário possuir um atendimento registrado na Tabela agenda fixa para aquele profissional (implícito pela unidade e horário), o Status será "Em Atendimento".
+▪
+Caso contrário, o Status será "Disponível".
+•
+Tabela Bloqueios:
+◦
+Colunas: IdBloqueio (Inteiro, Chave Primária), IdProffional (Inteiro, Chave Estrangeira referenciando Profissionais), Dia (Texto), Horario (Texto).
+◦
+População: Os bloqueios serão listados para cada profissional com base no arquivo de bloqueios. É importante tratar as variações no formato dos dias da semana.
+•
+Tabela PEI-CADASTRADO:
+◦
+Colunas: ID (Manter), Paciente (Manter), Data_Autorização (Manter), Código_Terapia (Manter), Sessões Autorizadas (Manter), PEI Semanal (Manter).
+◦
+População: Os dados relevantes serão extraídos do arquivo de upload da agenda fixa.
+•
+Tabela Terminologias:
+◦
+Colunas: Codigo (Texto, Chave Primária), Abrev (Texto), Nome (Texto - preencher com o nome completo da terminologia).
+◦
+População: A tabela será preenchida com os seguintes dados:
+▪
+2250005189, FONO, Fonoaudiologia
+▪
+2250005103, PSI, Psicologia
+▪
+2250005170, TO, Terapia Ocupacional
+▪
+50000012, MOTRIC, Psicomotricidade
+▪
+50001213, MUSICO, Musicoterapia
+▪
+2250005111, FISIO, Fisioterapia
+▪
+2250005278, PED, Psicopedagogia
+▪
+2250035189, FONO, Fonoaudiologia (observar a duplicidade do código para FONO)
+Módulos da Aplicação:
+•
+Módulo de Cadastro e Edição de Unidades: Permitir a criação, leitura, atualização e exclusão de unidades, incluindo a definição se a unidade atende ou não aos sábados.
+•
+Módulo de Criação e Edição de Salas: Permitir a criação, leitura, atualização e exclusão de salas, vinculando-as a uma unidade.
+Dashboard de Disponibilidade de Agenda:
+•
+Filtros: A interface deverá oferecer os seguintes filtros:
+◦
+Dia da Semana
+◦
+Unidade
+◦
+Pagamento (a fonte de dados para este filtro não está clara nos excertos, verificar necessidade e origem)
+◦
+Terminologia (com base na Tabela Terminologias e no Código_Terapia da Tabela PEI-CADASTRADO)
+◦
+Início (horário inicial para busca de disponibilidade)
+◦
+Término (horário final para busca de disponibilidade)
+◦
+Disponibilidade Sala (filtrar por salas disponíveis)
+◦
+Filtro de profissionais disponíveis para horário inferior ao início do agendamento desejado.
+◦
+Filtro de profissionais disponíveis para horário próximo após o término do agendamento desejado.
+•
+Listagem: A listagem de resultados deverá conter as seguintes informações:
+◦
+idPaciente
+◦
+Paciente
+◦
+Unidade
+◦
+Pagamento (a fonte de dados para este campo não está clara nos excertos, verificar necessidade e origem)
+◦
+Terminologia (com base no Código_Terapia)
+◦
+Qtde Agendado por terminologia (necessário calcular com base nos agendamentos existentes na Tabela Agenda Fixa dentro do período relevante)
+◦
+Pei Semanal (da Tabela PEI-CADASTRADO)
+◦
+Saldo inclusão: calculado como PEI Semanal - Qtde Agendado por terminologia.
+◦
+Profissionais Disponíveis horário -1: Ao clicar, exibir uma lista de profissionais disponíveis para o horário imediatamente anterior ao horário de busca, filtrados por terminologia e dia da semana.
+◦
+Profissionais Disponíveis horário +1: Ao clicar, exibir uma lista de profissionais disponíveis para o horário imediatamente posterior ao horário de busca, filtrados por terminologia e dia da semana.
+Considerações Importantes para a IA:
+•
+Flexibilidade nos Nomes de Planilhas e Sheets: A aplicação deve ser robusta o suficiente para lidar com variações nos nomes das planilhas e sheets dentro dos arquivos .xls. Será necessário identificar as informações relevantes com base na estrutura das colunas, e não apenas nos nomes.
+•
+Tratamento de Formatos de Data: Garantir que a conversão da coluna "Data" para o DiaSemana seja feita corretamente, considerando diferentes formatos que possam existir no arquivo.
+•
+Mapeamento de Profissionais e Terminologias: A identificação dos profissionais e suas terminologias principais virá da Tabela Agenda Fixa. O Codigo Faturamento pode ser usado para auxiliar no mapeamento com a Tabela Terminologias.
+•
+Lógica de Disponibilidade: A lógica para determinar a disponibilidade de salas e profissionais deve considerar a unidade de atendimento (se atende aos sábados), os bloqueios de agenda, e os horários já agendados na agenda fixa.
+•
+Duplicidade de Terminologias: Tratar a possível duplicidade do código "2250035189" para "FONO" na Tabela Terminologias. Definir qual código deve ser considerado o principal ou se ambos devem ser armazenados.
+•
+Campos "Pagamento": A origem e o significado do campo "Pagamento" mencionado no Dashboard não estão claros nos excertos. Solicitar esclarecimentos sobre a origem e os valores possíveis para este filtro e para a informação a ser exibida na listagem.
