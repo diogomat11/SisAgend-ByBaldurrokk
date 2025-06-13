@@ -19,6 +19,8 @@ import os
 from unidecode import unidecode
 import unicodedata
 from dotenv import load_dotenv
+import time as pytime  # Se precisar do time.sleep, use pytime.sleep()
+from cachetools import cached, TTLCache
 
 # Carregar variáveis de ambiente do arquivo .env
 load_dotenv(override=True)
@@ -90,6 +92,34 @@ HORARIOS_DISPONIVEIS = [
     time(12, 0), time(13, 0), time(14, 0), time(15, 0), time(16, 0),
     time(17, 0), time(18, 0)
 ]
+
+# Cache para resultados de consultas
+cache = TTLCache(maxsize=100, ttl=300)
+cache_unidades = TTLCache(maxsize=100, ttl=300)
+cache_profissionais = TTLCache(maxsize=100, ttl=300)
+cache_areas = TTLCache(maxsize=100, ttl=300)
+cache_pagamentos = TTLCache(maxsize=100, ttl=300)
+cache_perfis = TTLCache(maxsize=100, ttl=300)
+
+@cached(cache_unidades)
+def get_unidades_ativas(session):
+    return session.query(Unidade).filter_by(ativo=True).all()
+
+@cached(cache_profissionais)
+def get_profissionais_ativos(session):
+    return session.query(Profissional).filter_by(ativo=True).all()
+
+@cached(cache_areas)
+def get_areas_ativas(session):
+    return session.query(AreaAtuacao).filter_by(ativo=True).all()
+
+@cached(cache_pagamentos)
+def get_pagamentos_ativos(session):
+    return session.query(Pagamento).filter_by(ativo=True).all()
+
+@cached(cache_perfis)
+def get_perfis_ativos(session):
+    return session.query(PerfilPaciente).filter_by(ativo=True).all()
 
 # Funções auxiliares
 def verificar_integridade_banco():
@@ -1871,184 +1901,163 @@ def processar_arquivo_excel(arquivo):
         return None
 
 def consultar_disponibilidade():
-    """Interface para consulta de disponibilidade"""
+    """Interface para consulta de disponibilidade (otimizada com paginação)"""
     try:
         st.title("🔍 Consulta de Disponibilidade")
-        
         session = get_session()
         if not session:
             st.error("❌ Não foi possível conectar ao banco de dados")
             return
-            
-        # Carregar dados
-        unidades = session.query(Unidade).filter_by(ativo=True).all()
-        profissionais = session.query(Profissional).filter_by(ativo=True).all()
-        areas = session.query(AreaAtuacao).filter_by(ativo=True).all()
-        pagamentos = session.query(Pagamento).filter_by(ativo=True).all()
-        perfis = session.query(PerfilPaciente).filter_by(ativo=True).all()
-        
+        start_time = pytime.time()
+        # Carregar dados corretos para cada filtro
+        unidades = get_unidades_ativas(session)  # Lista de unidades
+        profissionais = get_profissionais_ativos(session)  # Lista de profissionais
+        areas = get_areas_ativas(session)  # Lista de áreas de atuação
+        pagamentos = get_pagamentos_ativos(session)  # Lista de tipos de pagamento
+        perfis = get_perfis_ativos(session)  # Lista de perfis de paciente
+        logging.info(f"Tempo para carregar dados iniciais: {pytime.time() - start_time:.2f} segundos")
         # Exibir estatísticas
         st.subheader("📊 Estatísticas")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        with col_m1:
             total_profissionais = len(profissionais)
             st.metric("Total de Profissionais", total_profissionais)
-            
-        with col2:
+        with col_m2:
             total_disponiveis = session.query(Disponibilidade).filter_by(status="Disponível").count()
             st.metric("Horários Disponíveis", total_disponiveis)
-            
-        with col3:
+        with col_m3:
             total_bloqueios = session.query(Disponibilidade).filter_by(status="Bloqueio").count()
             st.metric("Horários Bloqueados", total_bloqueios)
-            
-        with col4:
+        with col_m4:
             total_atendimentos = session.query(Disponibilidade).filter_by(status="Em atendimento").count()
             st.metric("Horários em Atendimento", total_atendimentos)
-        
-        # Lista de status
-        status_opcoes = ["Todos", "Disponível", "Em atendimento", "Bloqueio"]
-        
-        # Filtros
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            # Filtro de unidade
+        status_opcoes = ["Disponível", "Todos", "Em atendimento", "Bloqueio"]
+        # Filtros reorganizados conforme solicitado
+        col_f1, col_f2, col_f3, col_f4 = st.columns([1.2,1,1,1])
+        with col_f1:
+            status = st.selectbox(
+                "📊 Status",
+                status_opcoes,
+                index=0,
+                help="Selecione o status"
+            )
             unidade_selecionada = st.selectbox(
                 "🏥 Unidade",
                 ["Todos"] + [u.nome for u in unidades],
                 help="Selecione a unidade para filtrar"
             )
-            
-            # Filtro de área
+        with col_f2:
             area_selecionada = st.selectbox(
                 "🎯 Área de Atuação",
                 ["Todos"] + [a.nome for a in areas],
                 help="Selecione a área de atuação"
             )
-            
-            # Subcolunas para dia da semana e profissional
-            subcol1, subcol2 = st.columns(2)
-            
-            with subcol1:
-                # Filtro de dia da semana
-                dia_semana = st.selectbox(
-                    "📅 Dia da Semana",
-                    ["Todos", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
-                    help="Selecione o dia da semana"
-                )
-            
-            with subcol2:
-                # Filtro de profissional
-                profissional_selecionado = st.selectbox(
-                    "👨‍⚕️ Profissional",
-                    ["Todos"] + [p.nome for p in profissionais],
-                    help="Selecione o profissional"
-                )
-            
-        with col2:
-            # Filtro de período
+            dia_semana = st.selectbox(
+                "📅 Dia da Semana",
+                ["Todos", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+                help="Selecione o dia da semana"
+            )
+        with col_f3:
             periodo = st.selectbox(
                 "⏰ Período",
                 ["Todos", "Matutino", "Vespertino"],
                 help="Selecione o período"
             )
-            
-            # Filtro de status
-            status = st.selectbox(
-                "📊 Status",
-                status_opcoes,
-                help="Selecione o status"
-            )
-            
-        with col3:
-            # Filtro de pagamento
-            pagamento = st.selectbox(
-                "💰 Pagamento",
-                ["Todos"] + [p.nome for p in pagamentos],
-                help="Selecione o tipo de pagamento"
-            )
-            
-            # Filtro de perfil
             perfil = st.selectbox(
                 "👥 Perfil",
                 ["Todos"] + [p.nome for p in perfis],
                 help="Selecione o perfil do paciente"
             )
-            
-        # Botão para consultar
-        if st.button("🔍 Consultar"):
-            try:
-                # Construir query base
-                query = session.query(Disponibilidade).join(Profissional)
-                
-                # Aplicar filtros
-                if unidade_selecionada != "Todos":
-                    query = query.join(Unidade).filter(Unidade.nome == unidade_selecionada)
-                    
-                if area_selecionada != "Todos":
-                    query = query.join(Profissional.areas_atuacao).filter(AreaAtuacao.nome == area_selecionada)
-                    
-                if dia_semana != "Todos":
-                    query = query.filter(Disponibilidade.dia_semana == dia_semana)
-                    
-                if profissional_selecionado != "Todos":
-                    query = query.filter(Profissional.nome == profissional_selecionado)
-                    
-                if periodo != "Todos":
-                    query = query.filter(Disponibilidade.periodo == periodo)
-                    
-                if status != "Todos":
-                    query = query.filter(Disponibilidade.status == status)
-                    
-                if pagamento != "Todos":
-                    query = query.join(Profissional.pagamentos).filter(Pagamento.nome == pagamento)
-                    
-                if perfil != "Todos":
-                    query = query.join(Profissional.perfis_paciente).filter(PerfilPaciente.nome == perfil)
-                
-                # Executar query
-                disponibilidades = query.all()
-                
-                if disponibilidades:
-                    dados = []
-                    for disp in disponibilidades:
-                        # Buscar profissional
-                        profissional = session.query(Profissional).get(disp.profissional_id)
-                        
-                        # Buscar unidade
-                        unidade = session.query(Unidade).get(disp.unidade_id) if disp.unidade_id else None
-                        
-                        # Buscar áreas, pagamentos e perfis do profissional
-                        areas_prof = ", ".join([a.nome for a in profissional.areas_atuacao]) if profissional.areas_atuacao else ""
-                        pagamentos_prof = ", ".join([p.nome for p in profissional.pagamentos]) if profissional.pagamentos else ""
-                        perfis_prof = ", ".join([p.nome for p in profissional.perfis_paciente]) if profissional.perfis_paciente else ""
-                        
-                        # Ajustar status de "Ocupado" para "Em atendimento"
-                        status_exibicao = "Em atendimento" if disp.status == "Ocupado" else disp.status
-                        
-                        dados.append({
-                            'Profissional': profissional.nome if profissional else '',
-                            'Unidade': unidade.nome if unidade else '',
-                            'Dia': disp.dia_semana,
-                            'Período': disp.periodo,
-                            'Hora Início': disp.hora_inicio,
-                            'Hora Fim': disp.hora_fim,
-                            'Status': status_exibicao,
-                            'Áreas': areas_prof,
-                            'Pagamentos': pagamentos_prof,
-                            'Perfis': perfis_prof
-                        })
-                        
-                    df = pd.DataFrame(dados)
-                    st.dataframe(df, use_container_width=True)
-                else:
-                    st.warning("⚠️ Nenhuma disponibilidade encontrada com os filtros selecionados")
-                    
-            except Exception as e:
-                st.error(f"❌ Erro ao buscar disponibilidades: {str(e)}")
-                
+        with col_f4:
+            profissional_selecionado = st.selectbox(
+                "👨‍⚕️ Profissional",
+                ["Todos"] + [p.nome for p in profissionais],
+                help="Selecione o profissional"
+            )
+            pagamento = st.selectbox(
+                "💰 Pagamento",
+                ["Todos"] + [p.nome for p in pagamentos],
+                help="Selecione o tipo de pagamento"
+            )
+        # Linha de paginação
+        st.markdown("---")
+        col_pag1, _, col_pag2 = st.columns([1,6,1])
+        with col_pag1:
+            itens_por_pagina = st.selectbox("Resultados por página", [25, 50, 100], index=1, key="itens_pagina")
+        with col_pag2:
+            pagina = st.number_input("Página", min_value=1, value=1, step=1, key="pagina_num")
+        # Consulta automática ao alterar qualquer filtro
+        try:
+            query = session.query(
+                Disponibilidade.id,
+                Disponibilidade.profissional_id,
+                Disponibilidade.unidade_id,
+                Disponibilidade.dia_semana,
+                Disponibilidade.periodo,
+                Disponibilidade.hora_inicio,
+                Disponibilidade.hora_fim,
+                Disponibilidade.status
+            )
+            # Filtros
+            if unidade_selecionada != "Todos":
+                unidade = session.query(Unidade).filter_by(nome=unidade_selecionada).first()
+                if unidade:
+                    query = query.filter(Disponibilidade.unidade_id == unidade.id)
+            if area_selecionada != "Todos":
+                area = session.query(AreaAtuacao).filter_by(nome=area_selecionada).first()
+                if area:
+                    profs_area = [p.id for p in area.profissionais]
+                    query = query.filter(Disponibilidade.profissional_id.in_(profs_area))
+            if dia_semana != "Todos":
+                query = query.filter(Disponibilidade.dia_semana == dia_semana)
+            if profissional_selecionado != "Todos":
+                prof = session.query(Profissional).filter_by(nome=profissional_selecionado).first()
+                if prof:
+                    query = query.filter(Disponibilidade.profissional_id == prof.id)
+            if periodo != "Todos":
+                query = query.filter(Disponibilidade.periodo == periodo)
+            if status != "Todos":
+                query = query.filter(Disponibilidade.status == status)
+            # Pagamento e perfil: filtrar IDs de profissionais
+            if pagamento != "Todos":
+                profs_pagamento = [p.id for p in profissionais if pagamento in [pag.nome for pag in p.pagamentos]]
+                query = query.filter(Disponibilidade.profissional_id.in_(profs_pagamento))
+            if perfil != "Todos":
+                profs_perfil = [p.id for p in profissionais if perfil in [pf.nome for pf in p.perfis_paciente]]
+                query = query.filter(Disponibilidade.profissional_id.in_(profs_perfil))
+            # Paginação
+            total_resultados = query.count()
+            disponibilidades = query.offset((pagina-1)*itens_por_pagina).limit(itens_por_pagina).all()
+            # Buscar dados extras em lote
+            prof_ids = list(set([d.profissional_id for d in disponibilidades]))
+            unid_ids = list(set([d.unidade_id for d in disponibilidades if d.unidade_id]))
+            profs_dict = {p.id: p for p in session.query(Profissional).filter(Profissional.id.in_(prof_ids)).all()}
+            unids_dict = {u.id: u for u in session.query(Unidade).filter(Unidade.id.in_(unid_ids)).all()}
+            dados = []
+            for disp in disponibilidades:
+                profissional = profs_dict.get(disp.profissional_id)
+                unidade = unids_dict.get(disp.unidade_id) if disp.unidade_id else None
+                areas_prof = ", ".join([a.nome for a in profissional.areas_atuacao]) if profissional and profissional.areas_atuacao else ""
+                pagamentos_prof = ", ".join([p.nome for p in profissional.pagamentos]) if profissional and profissional.pagamentos else ""
+                perfis_prof = ", ".join([p.nome for p in profissional.perfis_paciente]) if profissional and profissional.perfis_paciente else ""
+                status_exibicao = "Em atendimento" if disp.status == "Ocupado" else disp.status
+                dados.append({
+                    'Profissional': profissional.nome if profissional else '',
+                    'Unidade': unidade.nome if unidade else '',
+                    'Dia': disp.dia_semana,
+                    'Período': disp.periodo,
+                    'Hora Início': disp.hora_inicio,
+                    'Hora Fim': disp.hora_fim,
+                    'Status': status_exibicao,
+                    'Áreas': areas_prof,
+                    'Pagamentos': pagamentos_prof,
+                    'Perfis': perfis_prof
+                })
+            df = pd.DataFrame(dados)
+            st.write(f"Exibindo {len(df)} de {total_resultados} resultados.")
+            st.dataframe(df, use_container_width=True)
+        except Exception as e:
+            st.error(f"❌ Erro ao buscar disponibilidades: {str(e)}")
     except Exception as e:
         st.error(f"❌ Erro ao consultar disponibilidade: {str(e)}")
     finally:
