@@ -28,6 +28,8 @@ load_dotenv(override=True)
 # Obter a URL do banco de dados do arquivo .env
 DATABASE_URL = os.getenv('DATABASE_URL')
 
+print("DEBUG DATABASE_URL:", DATABASE_URL)
+
 # Configuração da página do Streamlit
 st.set_page_config(
     page_title="Sistema de Agendamento",
