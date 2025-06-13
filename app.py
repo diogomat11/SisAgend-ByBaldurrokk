@@ -23,7 +23,7 @@ import time as pytime  # Se precisar do time.sleep, use pytime.sleep()
 from cachetools import cached, TTLCache
 
 # Carregar variáveis de ambiente do arquivo .env
-load_dotenv(override=True)
+# load_dotenv(override=True)
 
 # Obter a URL do banco de dados do arquivo .env
 DATABASE_URL = os.getenv('DATABASE_URL')
